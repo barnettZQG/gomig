@@ -1,10 +1,15 @@
 package main
 
 import (
-	"github.com/jessevdk/go-flags"
 	"os"
+
+	"github.com/jessevdk/go-flags"
+
+	_ "github.com/go-sql-driver/mysql"
+	_ "github.com/lib/pq"
 )
 
+//Options Options
 type Options struct {
 	/* verbosity level */
 	Verbose []bool `short:"v" long:"verbose" description:"Verbose output"`

@@ -1,8 +1,9 @@
 package main
 
 import (
-	"github.com/aktau/gomig/db/common"
 	"sort"
+
+	"github.com/barnettzqg/gomig/db/common"
 )
 
 /* this file deals with trying to migrate tables in the right order, which

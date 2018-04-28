@@ -3,9 +3,10 @@ package mysql
 import (
 	"database/sql"
 	"fmt"
-	. "github.com/aktau/gomig/db/common"
 	"log"
 	"strings"
+
+	"github.com/barnettzqg/gomig/db/common"
 )
 
 var (
@@ -23,7 +24,7 @@ type MysqlReader struct {
 	*sql.DB
 }
 
-func OpenReader(conf *Config) (*MysqlReader, error) {
+func OpenReader(conf *common.Config) (*MysqlReader, error) {
 	db, err := openDB(conf)
 	if err != nil {
 		return nil, err
@@ -68,14 +69,14 @@ func (r *MysqlReader) TableNames() []string {
 	return tables
 }
 
-func (r *MysqlReader) Tables() []*Table {
+func (r *MysqlReader) Tables() []*common.Table {
 	return r.FilteredTables(nil, nil)
 }
 
-func (r *MysqlReader) FilteredTables(incl, excl map[string]bool) []*Table {
+func (r *MysqlReader) FilteredTables(incl, excl map[string]bool) []*common.Table {
 	tableNames := r.TableNames()
-	filteredTableNames := FilterInclExcl(tableNames, incl, excl)
-	tables := make([]*Table, 0, len(filteredTableNames))
+	filteredTableNames := common.FilterInclExcl(tableNames, incl, excl)
+	tables := make([]*common.Table, 0, len(filteredTableNames))
 
 	if READER_VERBOSE {
 		log.Printf("mysql: all tables = %v, filtered = %v\n", tableNames, filteredTableNames)
@@ -89,7 +90,7 @@ func (r *MysqlReader) FilteredTables(incl, excl map[string]bool) []*Table {
 		}
 
 		/* create table struct */
-		table := &Table{Name: tableName, DbType: "mysql", Columns: columns}
+		table := &common.Table{Name: tableName, DbType: "mysql", Columns: columns}
 
 		tables = append(tables, table)
 	}
@@ -106,14 +107,14 @@ type rawCol struct {
 	extra   string
 }
 
-func (r *MysqlReader) columns(table string) ([]*Column, error) {
+func (r *MysqlReader) columns(table string) ([]*common.Column, error) {
 	rows, err := r.Query(fmt.Sprintf("EXPLAIN `%v`;", table))
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
 
-	cols := make([]*Column, 0, 8)
+	cols := make([]*common.Column, 0, 8)
 
 	var rc rawCol
 	for rows.Next() {
@@ -137,11 +138,11 @@ func (r *MysqlReader) columns(table string) ([]*Column, error) {
 	return cols, nil
 }
 
-func (r *MysqlReader) processCol(table string, rc *rawCol) (*Column, error) {
+func (r *MysqlReader) processCol(table string, rc *rawCol) (*common.Column, error) {
 	t := rc.rawtype
 	length := 255
 
-	return &Column{
+	return &common.Column{
 		TableName:    table,
 		Name:         rc.name,
 		Type:         MysqlToGenericType(t),
@@ -156,7 +157,7 @@ func (r *MysqlReader) processCol(table string, rc *rawCol) (*Column, error) {
 }
 
 /* caller is responsible for cleaning up the sql.Rows object */
-func (r *MysqlReader) Read(table *Table) (*sql.Rows, error) {
+func (r *MysqlReader) Read(table *common.Table) (*sql.Rows, error) {
 	rows, err := r.Query(fmt.Sprintf("SELECT * FROM %v;", table.Name))
 	if err != nil {
 		return nil, err

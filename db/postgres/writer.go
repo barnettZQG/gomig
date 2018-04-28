@@ -6,7 +6,7 @@ import (
 	"log"
 	"strings"
 
-	. "github.com/aktau/gomig/db/common"
+	"github.com/barnettzqg/gomig/db/common"
 )
 
 var PG_W_VERBOSE = true
@@ -14,8 +14,8 @@ var PG_W_VERBOSE = true
 var (
 	postgresInit = []string{
 		"SET client_encoding = 'UTF8';",
-		"SET standard_conforming_strings = off;",
-		"SET check_function_bodies = false;",
+		"SET STANDARD_CONFORMING_STRINGS = on;",
+		//"SET check_function_bodies = false;",
 		"SET client_min_messages = warning;",
 	}
 )
@@ -45,11 +45,11 @@ ORDER BY col.ordinal_position;`
 )
 
 type genericPostgresWriter struct {
-	e               Executor
+	e               common.Executor
 	insertBulkLimit int
 }
 
-func (w *genericPostgresWriter) bulkTransfer(src *Table, dstName string, rows *sql.Rows) (err error) {
+func (w *genericPostgresWriter) bulkTransfer(src *common.Table, dstName string, rows *sql.Rows) (err error) {
 	ex := w.e
 
 	colnames := make([]string, 0, len(src.Columns))
@@ -85,7 +85,7 @@ func (w *genericPostgresWriter) bulkTransfer(src *Table, dstName string, rows *s
 	return
 }
 
-func (w *genericPostgresWriter) normalTransfer(src *Table, dstName string, rows *sql.Rows) error {
+func (w *genericPostgresWriter) normalTransfer(src *common.Table, dstName string, rows *sql.Rows) error {
 	/* an alternate way to do this, with type assertions
 	 * but possibly less accurately: http://go-database-sql.org/varcols.html */
 	pointers := make([]interface{}, len(src.Columns))
@@ -95,13 +95,21 @@ func (w *genericPostgresWriter) normalTransfer(src *Table, dstName string, rows 
 	}
 	stringrep := make([]string, 0, len(src.Columns))
 	insertLines := make([]string, 0, 32)
+
+	var columns string
+	for _, idx := range src.Columns {
+		if columns == "" {
+			columns += "\"" + idx.Name + "\""
+		} else {
+			columns += ",\"" + idx.Name + "\""
+		}
+	}
 	for rows.Next() {
 		err := rows.Scan(pointers...)
 		if err != nil {
 			log.Println("postgres: error while reading from source:", err)
 			return err
 		}
-
 		for idx, val := range containers {
 			str, err := RawToPostgres(val, src.Columns[idx].Type)
 			if err != nil {
@@ -114,19 +122,18 @@ func (w *genericPostgresWriter) normalTransfer(src *Table, dstName string, rows 
 		stringrep = stringrep[:0]
 
 		if len(insertLines) >= w.insertBulkLimit {
-			err = w.e.Submit(fmt.Sprintf("INSERT INTO %v VALUES\n\t%v;\n",
-				dstName, strings.Join(insertLines, ",\n\t")))
+			err = w.e.Submit(fmt.Sprintf("INSERT INTO %v(%s) VALUES\n\t%v;\n",
+				dstName, columns, strings.Join(insertLines, ",\n\t")))
 			if err != nil {
 				return err
 			}
-
 			insertLines = insertLines[:0]
 		}
 	}
 
 	if len(insertLines) > 0 {
-		err := w.e.Submit(fmt.Sprintf("INSERT INTO %v VALUES\n\t%v;\n",
-			dstName, strings.Join(insertLines, ",\n\t")))
+		err := w.e.Submit(fmt.Sprintf("INSERT INTO %v(%s) VALUES\n\t%v;\n",
+			dstName, columns, strings.Join(insertLines, ",\n\t")))
 		if err != nil {
 			return err
 		}
@@ -135,7 +142,7 @@ func (w *genericPostgresWriter) normalTransfer(src *Table, dstName string, rows 
 	return nil
 }
 
-func (w *genericPostgresWriter) transferTable(src *Table, dstName string, r Reader) error {
+func (w *genericPostgresWriter) transferTable(src *common.Table, dstName string, r common.Reader) error {
 	/* bulk insert values */
 	rows, err := r.Read(src)
 	if err != nil {
@@ -146,8 +153,8 @@ func (w *genericPostgresWriter) transferTable(src *Table, dstName string, r Read
 	if PG_W_VERBOSE {
 		log.Print("postgres: query done, scanning rows...")
 	}
-
-	if w.e.HasCapability(CapBulkTransfer) {
+	fmt.Println(w.e.HasCapability(common.CapBulkTransfer))
+	if w.e.HasCapability(common.CapBulkTransfer) {
 		if PG_W_VERBOSE {
 			log.Print("postgres: bulk capability detected, performing bulk transfer...")
 		}
@@ -166,12 +173,21 @@ func (w *genericPostgresWriter) transferTable(src *Table, dstName string, r Read
 
 	return rows.Err()
 }
+func (w *genericPostgresWriter) ClearTable(tables []string) {
+	if err := w.e.Begin("clear table"); err != nil {
+		fmt.Println(err.Error())
+	}
+	for _, table := range tables {
+		w.e.Submit(fmt.Sprintf("drop table %s;", table))
+	}
+	if err := w.e.Commit(); err != nil {
+		fmt.Println(err.Error())
+	}
+}
 
 /* how to do an UPSERT/MERGE in PostgreSQL
  * http://stackoverflow.com/questions/17267417/how-do-i-do-an-upsert-merge-insert-on-duplicate-update-in-postgresq */
-func (w *genericPostgresWriter) MergeTable(src *Table, dstName, extraDstCond string, r Reader) error {
-	tmpName := "gomig_tmp"
-
+func (w *genericPostgresWriter) MergeTable(src *common.Table, dstName, extraDstCond string, r common.Reader) error {
 	mergeTableI := fmt.Sprintf("merge table %v into table %v",
 		src.Name, dstName)
 	if err := w.e.Begin(mergeTableI); err != nil {
@@ -179,7 +195,7 @@ func (w *genericPostgresWriter) MergeTable(src *Table, dstName, extraDstCond str
 	}
 
 	/* create temporary table */
-	tempTableQ := fmt.Sprintf("CREATE TEMPORARY TABLE %v (\n\t%v\n)\nON COMMIT DROP;\n", tmpName, ColumnsSql(src))
+	tempTableQ := fmt.Sprintf("CREATE TABLE IF NOT EXISTS %v (\n\t%v\n);\n", dstName, ColumnsSql(src))
 	if err := w.e.Submit(tempTableQ); err != nil {
 		return err
 	}
@@ -188,89 +204,13 @@ func (w *genericPostgresWriter) MergeTable(src *Table, dstName, extraDstCond str
 		log.Println("postgres: preparing to read values from source db")
 	}
 
-	if err := w.transferTable(src, tmpName, r); err != nil {
+	if err := w.transferTable(src, dstName, r); err != nil {
 		return err
 	}
 
 	if PG_W_VERBOSE {
 		log.Print("postgres: rowscan done, creating merge statements")
 	}
-
-	/* analyze the temp table, for performance */
-	if err := w.e.Submit(fmt.Sprintf("ANALYZE %v;\n", tmpName)); err != nil {
-		return err
-	}
-
-	/* lock the target table */
-	lockTableQ := fmt.Sprintf("LOCK TABLE %v IN EXCLUSIVE MODE;", dstName)
-	if err := w.e.Submit(lockTableQ); err != nil {
-		return err
-	}
-
-	colnames := make([]string, 0, len(src.Columns))
-	srccol := make([]string, 0, len(src.Columns))
-	pkWhere := make([]string, 0, len(src.Columns))
-	pkIsNull := make([]string, 0, len(src.Columns))
-	colassign := make([]string, 0, len(src.Columns))
-	for _, col := range src.Columns {
-		colnames = append(colnames, col.Name)
-		srccol = append(srccol, "src."+col.Name)
-		if col.PrimaryKey {
-			pkWhere = append(pkWhere, fmt.Sprintf("dst.%[1]v = src.%[1]v", col.Name))
-			pkIsNull = append(pkIsNull, fmt.Sprintf("dst.%[1]v IS NULL", col.Name))
-		} else {
-			colassign = append(colassign, fmt.Sprintf("%[1]v = src.%[1]v", col.Name))
-		}
-	}
-	pkWherePart := strings.Join(pkWhere, "\nAND    ")
-	pkIsNullPart := strings.Join(pkIsNull, "\nAND    ")
-	srccolPart := strings.Join(srccol, ",\n       ")
-
-	/* it's possible this table is all primary key (as far as we know),
-	 * in which case we don't need the update part */
-	if len(colassign) != 0 {
-		/* UPDATE from temp table to target table based on PK */
-		updateQ := fmt.Sprintf(`
-UPDATE %v AS dst
-SET    %v
-FROM   %v AS src
-WHERE  %v;`, dstName, strings.Join(colassign, ",\n       "), tmpName, pkWherePart)
-		if err := w.e.Submit(updateQ); err != nil {
-			return err
-		}
-	}
-
-	/* if there is an extra condition, make sure it attaches cleanly to the
-	 * rest of the query. */
-	if extraDstCond != "" {
-		extraDstCond = strings.TrimSpace(extraDstCond)
-		if !strings.HasPrefix(extraDstCond, "and") &&
-			!strings.HasPrefix(extraDstCond, "AND") &&
-			!strings.HasPrefix(extraDstCond, "or") &&
-			!strings.HasPrefix(extraDstCond, "OR") {
-			extraDstCond = "AND " + extraDstCond
-		}
-		extraDstCond = "\n" + extraDstCond
-	}
-
-	/* INSERT from temp table to target table based on PK */
-	insertQ := fmt.Sprintf(`
-INSERT INTO %[1]v (%[3]v)
-SELECT %[4]v
-FROM   %[2]v AS src
-LEFT OUTER JOIN %[1]v AS dst ON (
-       %[5]v
-)
-WHERE  %[6]v%[7]v;`, dstName, tmpName, strings.Join(colnames, ", "), srccolPart,
-		pkWherePart, pkIsNullPart, extraDstCond)
-	if err := w.e.Submit(insertQ); err != nil {
-		return err
-	}
-
-	if PG_W_VERBOSE {
-		log.Print("postgres: statements completed, executing transaction")
-	}
-
 	return w.e.Commit()
 }
 
@@ -280,9 +220,16 @@ func (w *genericPostgresWriter) Close() error {
 
 type PostgresWriter struct {
 	genericPostgresWriter
+	db *sql.DB
 }
 
-func NewPostgresWriter(conf *Config) (*PostgresWriter, error) {
+//GetDB GetDB
+func (w *PostgresWriter) GetDB() *sql.DB {
+	return w.db
+}
+
+//NewPostgresWriter NewPostgresWriter
+func NewPostgresWriter(conf *common.Config) (*PostgresWriter, error) {
 	db, err := openDB(conf)
 	if err != nil {
 		return nil, err
@@ -303,15 +250,18 @@ func NewPostgresWriter(conf *Config) (*PostgresWriter, error) {
 		return nil, errors[0]
 	}
 
-	return &PostgresWriter{genericPostgresWriter{executor, 64}}, nil
+	return &PostgresWriter{db: db, genericPostgresWriter: genericPostgresWriter{executor, 64}}, nil
 }
 
 type PostgresFileWriter struct {
 	genericPostgresWriter
 }
 
+func (p *PostgresFileWriter) GetDB() *sql.DB {
+	return nil
+}
 func NewPostgresFileWriter(filename string) (*PostgresFileWriter, error) {
-	executor, err := NewFileExecutor(filename)
+	executor, err := common.NewFileExecutor(filename)
 	if err != nil {
 		return nil, err
 	}
@@ -328,11 +278,12 @@ func NewPostgresFileWriter(filename string) (*PostgresFileWriter, error) {
 	return &PostgresFileWriter{genericPostgresWriter{executor, 256}}, err
 }
 
-func ColumnsSql(table *Table) string {
-	colSql := make([]string, 0, len(table.Columns))
+//ColumnsSql ColumnsSql
+func ColumnsSql(table *common.Table) string {
+	colSQL := make([]string, 0, len(table.Columns))
 
 	for _, col := range table.Columns {
-		colSql = append(colSql, fmt.Sprintf("%v %v", col.Name, GenericToPostgresType(col.Type)))
+		colSQL = append(colSQL, fmt.Sprintf("%v %v", col.Name, GenericToPostgresType(col.Type)))
 	}
 
 	pkCols := make([]string, 0, len(table.Columns))
@@ -343,8 +294,8 @@ func ColumnsSql(table *Table) string {
 	}
 
 	/* add the primary key */
-	colSql = append(colSql, fmt.Sprintf("PRIMARY KEY (%v)",
+	colSQL = append(colSQL, fmt.Sprintf("PRIMARY KEY (%v)",
 		strings.Join(pkCols, ", ")))
 
-	return strings.Join(colSql, ",\n\t")
+	return strings.Join(colSQL, ",\n\t")
 }

@@ -1,56 +1,59 @@
 package mysql
 
 import (
-	. "github.com/aktau/gomig/db/common"
 	"log"
 	"regexp"
 	"strconv"
 	"strings"
+
+	"github.com/barnettzqg/gomig/db/common"
 )
 
-func MysqlToGenericType(mysqlType string) *Type {
+func MysqlToGenericType(mysqlType string) *common.Type {
 	rt := mysqlType
 	switch {
 	case rt == "set":
-		return SetType()
+		return common.SetType()
 	case rt == "date":
-		return DateType()
+		return common.DateType()
 	case rt == "time":
-		return TimeType()
+		return common.TimeType()
 	case rt == "datetime", rt == "timestamp":
-		return TimestampType()
+		return common.TimestampType()
 	case strings.Contains(rt, "float"):
-		return FloatType()
+		return common.FloatType()
 	case strings.Contains(rt, "double"):
-		return DoubleType()
+		return common.DoubleType()
 	case strings.Contains(rt, "numeric"), strings.Contains(rt, "decimal"):
 		scale, precision := ExtractPrecisionAndScale(rt)
-		return NumericType(scale, precision)
-	case strings.Contains(rt, "tinyint"), rt == "smallint", rt == "year":
-		return IntType(TypeSmall)
+		return common.NumericType(scale, precision)
+	case strings.Contains(rt, "tinyint"):
+		return common.BoolType()
+	case rt == "smallint", rt == "year":
+		return common.IntType(common.TypeSmall)
 	case rt == "bigint", rt == "int unsigned":
-		return IntType(TypeLarge)
+		return common.IntType(common.TypeLarge)
 	case rt == "bigint unsigned":
-		return IntType(TypeHuge)
+		return common.IntType(common.TypeHuge)
 	case strings.Contains(rt, "int"), rt == "smallint unsigned":
-		return IntType(TypeNormal)
+		return common.IntType(common.TypeNormal)
 	case strings.Contains(rt, "blob"), strings.Contains(rt, "binary"):
-		return BlobType()
+		return common.BlobType()
 	case strings.HasPrefix(rt, "char"):
-		t := PaddedTextType()
+		t := common.PaddedTextType()
 		t.Max = ExtractLength(rt)
 		return t
 	case strings.Contains(rt, "varchar"), strings.Contains(rt, "text"):
-		t := TextType()
+		t := common.TextType()
 		t.Max = ExtractLength(rt)
 		return t
 	case strings.HasPrefix(rt, "bit") && rt != "bit":
-		return BitType(ExtractLength(rt))
+		return common.BitType(ExtractLength(rt))
 	case rt == "bit", rt == "bit(1)", rt == "tinyint(1)", rt == "tinyint(1) unsigned":
-		return BoolType()
+		return common.BoolType()
 	default:
 		log.Println("WARNING: mysql: encountered an unknown type, ", rt)
-		return SimpleType(rt)
+		return common.SimpleType(rt)
 	}
 }
 

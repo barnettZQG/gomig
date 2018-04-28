@@ -2,12 +2,13 @@ package db
 
 import (
 	"fmt"
-	. "github.com/aktau/gomig/db/common"
-	"github.com/aktau/gomig/db/mysql"
-	"github.com/aktau/gomig/db/postgres"
+
+	"github.com/barnettzqg/gomig/db/common"
+	"github.com/barnettzqg/gomig/db/mysql"
+	"github.com/barnettzqg/gomig/db/postgres"
 )
 
-func OpenReader(driverName string, conf *Config) (ReadCloser, error) {
+func OpenReader(driverName string, conf *common.Config) (common.ReadCloser, error) {
 	switch driverName {
 	case "mysql":
 		return mysql.OpenReader(conf)
@@ -16,7 +17,7 @@ func OpenReader(driverName string, conf *Config) (ReadCloser, error) {
 	return nil, fmt.Errorf("db: OpenReader: unknown driver type: %v", driverName)
 }
 
-func OpenFileWriter(driverName string, filename string) (WriteCloser, error) {
+func OpenFileWriter(driverName string, filename string) (common.WriteCloser, error) {
 	switch driverName {
 	case "postgres":
 		return postgres.NewPostgresFileWriter(filename)
@@ -25,7 +26,7 @@ func OpenFileWriter(driverName string, filename string) (WriteCloser, error) {
 	return nil, fmt.Errorf("db: OpenFileWriter: unknown driver type: %v", driverName)
 }
 
-func OpenWriter(driverName string, conf *Config) (WriteCloser, error) {
+func OpenWriter(driverName string, conf *common.Config) (common.WriteCloser, error) {
 	switch driverName {
 	case "postgres":
 		return postgres.NewPostgresWriter(conf)

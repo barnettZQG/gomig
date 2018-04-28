@@ -3,11 +3,11 @@ package mysql
 import (
 	"database/sql"
 	"fmt"
-	. "github.com/aktau/gomig/db/common"
-	_ "github.com/go-sql-driver/mysql"
+
+	"github.com/barnettzqg/gomig/db/common"
 )
 
-func openDB(conf *Config) (*sql.DB, error) {
+func openDB(conf *common.Config) (*sql.DB, error) {
 	protocol := "unix"
 	address := conf.Socket
 	if address == "" {

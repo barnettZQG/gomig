@@ -3,7 +3,10 @@ package postgres
 import (
 	"database/sql"
 	"fmt"
-	"github.com/aktau/gomig/db/common"
+	"strings"
+	"time"
+
+	"github.com/barnettzqg/gomig/db/common"
 )
 
 func PostgresToGenericType(postgresType string) string {
@@ -69,35 +72,46 @@ func GenericToPostgresType(genericType *common.Type) string {
 func RawToPostgres(val []byte, origType *common.Type) (string, error) {
 	if val == nil {
 		return "NULL", nil
-	} else {
-		switch origType.Name {
-		case common.TypeText, common.TypeChar, common.TypeJson:
-			return "$$" + string(val) + "$$", nil
-		case common.TypeBool:
-			/* ascii(48) = "0" and ascii(49) = "1" */
-			switch val[0] {
-			case 48:
-				return "'f'", nil
-			case 49:
-				return "'t'", nil
-			default:
-				return "", fmt.Errorf("postgres: did not recognize bool value: string(%v) = %v, val[0] = %v", val, string(val), val[0])
-			}
-		case common.TypeNumeric, common.TypeInteger, common.TypeFloat, common.TypeDouble:
-			return string(val), nil
-		case common.TypeTimeStamp, common.TypeTime, common.TypeDate:
-			return "'" + string(val) + "'", nil
-		default:
-			return string(val), nil
-		}
 	}
+	switch origType.Name {
+	case common.TypeText, common.TypeChar, common.TypeJson:
+		return "'" + AssemblyString(val) + "'", nil
+	case common.TypeBool, common.TypeTinyint:
+		/* ascii(48) = "0" and ascii(49) = "1" */
+		switch val[0] {
+		case 48:
+			return "FALSE", nil
+		case 49:
+			return "TRUE", nil
+		default:
+			return "", fmt.Errorf("postgres: did not recognize bool value: string(%v) = %v, val[0] = %v", val, string(val), val[0])
+		}
+	case common.TypeNumeric, common.TypeInteger, common.TypeFloat, common.TypeDouble:
+		return string(val), nil
+	case common.TypeTimeStamp, common.TypeTime, common.TypeDate:
+		s := AssemblyString(val)
+		if s == "0000-00-00 00:00:00" {
+			s = time.Now().Format(time.RFC3339)
+		}
+		return "'" + s + "'", nil
+	case common.TypeBlob:
+		return "E''", nil
+	default:
+		return string(val), nil
+	}
+}
+
+func AssemblyString(body []byte) string {
+	s := string(body)
+	s = strings.Replace(s, "'", "''", -1)
+	return s
 }
 
 func NewTypedSlice(src *common.Table) []interface{} {
 	vals := make([]interface{}, len(src.Columns))
 	for i, col := range src.Columns {
 		switch col.Type.Name {
-		case common.TypeBool:
+		case common.TypeBool, common.TypeTinyint:
 			if col.Null {
 				vals[i] = new(sql.NullBool)
 			} else {

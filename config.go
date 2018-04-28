@@ -4,15 +4,17 @@ import (
 	"fmt"
 	"io/ioutil"
 
-	"github.com/aktau/gomig/db/common"
-	"launchpad.net/goyaml"
+	"github.com/barnettzqg/gomig/db/common"
+	"github.com/go-yaml/yaml"
 )
 
+//DestinationConfig DestinationConfig
 type DestinationConfig struct {
 	File     string         `yaml:"file,omitempty"`
 	Postgres *common.Config `yaml:"postgres,omitempty"`
 }
 
+//ProjectionConfig ProjectionConfig
 type ProjectionConfig struct {
 	Pk         []string          `yaml:"pk,omitempty"`
 	Types      map[string]string `yaml:"column_types,omitempty"`
@@ -21,6 +23,7 @@ type ProjectionConfig struct {
 	Engine     string            `yaml:"engine,omitempty"`
 }
 
+//Config Config
 type Config struct {
 	Mysql        *common.Config               `yaml:"mysql,omitempty"`
 	Destination  *DestinationConfig           `yaml:"destination,omitempty"`
@@ -44,6 +47,7 @@ type Config struct {
 	ExcludeTablesList []string        `yaml:"exclude_tables,omitempty"`
 }
 
+//LoadConfig LoadConfig
 func LoadConfig(file string) (*Config, error) {
 	yml, err := ioutil.ReadFile(file)
 	if err != nil {
@@ -51,7 +55,7 @@ func LoadConfig(file string) (*Config, error) {
 	}
 
 	var c Config
-	err = goyaml.Unmarshal(yml, &c)
+	err = yaml.Unmarshal(yml, &c)
 	if err != nil {
 		return nil, err
 	}
@@ -75,6 +79,7 @@ func stringSliceToSet(sl []string) map[string]bool {
 	return set
 }
 
+//Validate Validate
 func (c *Config) Validate() error {
 	if c.Mysql == nil {
 		return fmt.Errorf("mysql section of config not present")

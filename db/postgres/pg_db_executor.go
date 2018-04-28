@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/aktau/gomig/db/common"
+	"github.com/barnettzqg/gomig/db/common"
 	"github.com/lib/pq"
 )
 
@@ -88,5 +88,6 @@ func (e *PgDbExecutor) BulkFinish() (err error) {
 }
 
 func (e *PgDbExecutor) HasCapability(capability int) bool {
-	return capability == common.CapBulkTransfer
+	return false
+	//return capability == common.CapBulkTransfer
 }

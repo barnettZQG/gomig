@@ -1,6 +1,7 @@
 package common
 
 import (
+	"database/sql"
 	"io"
 )
 
@@ -12,6 +13,8 @@ type Writer interface {
 
 	/* merge the contents of table */
 	MergeTable(src *Table, dstName, extraDstCond string, r Reader) error
+	ClearTable([]string)
+	GetDB() *sql.DB
 
 	/* (over)write the contents of table */
 	/* WriteTable(t *Table) error */

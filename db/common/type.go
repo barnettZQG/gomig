@@ -16,6 +16,7 @@ const (
 	TypeInteger   = "integer"
 	TypeBlob      = "blob"
 	TypeBool      = "bool"
+	TypeTinyint   = "tinyint"
 	TypeChar      = "char"
 	TypeBit       = "bit"
 	TypeText      = "text"
@@ -52,6 +53,7 @@ func FloatType() *Type                    { return simple(TypeFloat) }
 func DoubleType() *Type                   { return simple(TypeDouble) }
 func IntType(modifier TypeModifier) *Type { return simplem(TypeInteger, modifier) }
 func BlobType() *Type                     { return simple(TypeBlob) }
+func TinyintType() *Type                  { return simple(TypeTinyint) }
 func BoolType() *Type                     { return simple(TypeBool) }
 func PaddedTextType() *Type               { return simple(TypeChar) }
 func TextType() *Type                     { return simple(TypeText) }

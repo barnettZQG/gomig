@@ -35,7 +35,7 @@ If you have the go runtime installed, then it's as easy as:
 
 ```bash
 # get it!
-$ go get github.com/aktau/gomig
+$ go get github.com/barnettzqg/gomig
 
 # run it (assuming $GOPATH is in your $PATH, as I assume it would be for
 # most Go devs, otherwise you'll have to cd to $GOPATH/bin)
@@ -73,7 +73,7 @@ $ gomig migrate -f config.yml
 To update to the newest version later, you can just do:
 
 ```bash
-$ go get -u github.com/aktau/gomig
+$ go get -u github.com/barnettzqg/gomig
 ```
 
 Of course, with Go it's quite easy to just build binaries so that
@@ -91,8 +91,6 @@ Used libraries & software
 | --- | --- | --- |
 | [github.com/lib/pq](github.com/lib/pq) | Go database driver for postgres | MIT |
 | [github.com/go-sql-driver/mysql](github.com/go-sql-driver/mysql)| Go database driver for MySQL | MPL v2 |
-| [github.com/jessevdk/go-flags](github.com/jessevdk/go-flags) | Go package for cmdline flag parsing | BSD |
-| [launchpad.net/goyaml](launchpad.net/goyaml) | Go package for parsing/writing YAML | LGPL v3 |
 
 Todo
 ====

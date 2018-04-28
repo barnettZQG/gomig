@@ -1,8 +1,10 @@
 package main
 
 import (
-	"github.com/aktau/gomig/db/common"
+	"fmt"
 	"log"
+
+	"github.com/barnettzqg/gomig/db/common"
 )
 
 var (
@@ -74,7 +76,6 @@ func Convert(r common.ReadCloser, w common.WriteCloser, options *Config, verbosi
 	defer tempViews.Erase()
 
 	tables := r.FilteredTables(options.OnlyTables, options.ExcludeTables)
-
 	/* sort the tables according to only tables if "only tables" was
 	 * specified. This is a primitive way to be able to specify some
 	 * ordering among the tables. */
@@ -87,7 +88,6 @@ func Convert(r common.ReadCloser, w common.WriteCloser, options *Config, verbosi
 		if !ok {
 			continue
 		}
-
 		/* see if any of the columns require a different type than the
 		 * one we derived */
 		for _, col := range table.Columns {
@@ -108,8 +108,10 @@ func Convert(r common.ReadCloser, w common.WriteCloser, options *Config, verbosi
 		truncateTables(tables, w)
 	}
 	if !options.SuppressData {
+		var mergeTables []string
 		if options.Merge {
 			for _, srcTable := range tables {
+				fmt.Println(srcTable.Name)
 				/* is this table a projection? */
 				var extraDstCond string
 				if meta, ok := options.Projections[srcTable.Name]; ok {
@@ -123,8 +125,10 @@ func Convert(r common.ReadCloser, w common.WriteCloser, options *Config, verbosi
 				dstTableName := strmap(srcTable.Name, options.TableMap)
 				err := w.MergeTable(srcTable, dstTableName, extraDstCond, r)
 				if err != nil {
+					w.ClearTable(mergeTables)
 					return err
 				}
+				mergeTables = append(mergeTables, srcTable.Name)
 			}
 		} else {
 			writeData(tables, w)

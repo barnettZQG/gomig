@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/aktau/gomig/db"
-	"github.com/aktau/gomig/db/common"
+	"github.com/barnettzqg/gomig/db"
+	"github.com/barnettzqg/gomig/db/common"
 )
 
 const (

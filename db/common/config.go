@@ -1,5 +1,6 @@
 package common
 
+//Config db config
 type Config struct {
 	Hostname string `yaml:"hostname,omitempty"`
 	Socket   string `yaml:"socket,omitempty"`
@@ -8,4 +9,5 @@ type Config struct {
 	Password string `yaml:"password,omitempty"`
 	Database string `yaml:"database,omitempty"`
 	Compress bool   `yaml:"compress,omitempty"`
+	SSLmode  bool   `yaml:"sslmode,omitempty"`
 }
